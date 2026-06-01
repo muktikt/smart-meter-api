@@ -14,24 +14,24 @@ class PengaduanController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'user_id' => 'required',
-            'kategori' => 'required',
+            'user_id'   => 'required|exists:users,id',
+            'kategori'  => 'required',
             'deskripsi' => 'required',
         ]);
 
         $pengaduan = Pengaduan::create([
-            'user_id' => $request->user_id,
-            'kategori' => $request->kategori,
-            'deskripsi' => $request->deskripsi,
-            'foto' => $request->foto,
-            'status' => 'proses',
+            'user_id'    => $request->user_id,
+            'kategori'   => $request->kategori,
+            'deskripsi'  => $request->deskripsi,
+            'foto'       => $request->foto,
+            'status'     => 'proses',
             'petugas_id' => null
         ]);
 
         return response()->json([
-            'status' => true,
+            'status'  => true,
             'message' => 'Pengaduan berhasil dikirim',
-            'data' => $pengaduan
+            'data'    => $pengaduan
         ]);
     }
 
@@ -40,7 +40,9 @@ class PengaduanController extends Controller
     // =========================
     public function index(Request $request)
     {
-        $query = Pengaduan::with(['user', 'petugas'])->latest();
+        $query = Pengaduan::with(['user', 'petugas'])
+            ->whereNotNull('user_id')  // filter data kotor user_id NULL
+            ->latest();
 
         if ($request->filled('search')) {
             $query->whereHas('user', function ($q) use ($request) {
@@ -65,9 +67,10 @@ class PengaduanController extends Controller
 
         $pengaduan = $query->get();
 
-        $totalPengaduan = Pengaduan::count();
-        $proses = Pengaduan::whereIn('status', ['proses', 'pending'])->count();
-        $selesai = Pengaduan::where('status', 'selesai')->count();
+        // filter count juga agar angka statistik tidak ikut hitung data kotor
+        $totalPengaduan = Pengaduan::whereNotNull('user_id')->count();
+        $proses         = Pengaduan::whereNotNull('user_id')->whereIn('status', ['proses', 'pending'])->count();
+        $selesai        = Pengaduan::whereNotNull('user_id')->where('status', 'selesai')->count();
 
         return view('pengaduan.index', compact(
             'pengaduan',
@@ -82,7 +85,9 @@ class PengaduanController extends Controller
     // =========================
     public function detail($id)
     {
-        $pengaduan = Pengaduan::with(['user', 'petugas'])->findOrFail($id);
+        $pengaduan = Pengaduan::with(['user', 'petugas'])
+            ->whereNotNull('user_id')
+            ->findOrFail($id);
 
         return view('pengaduan.detail', compact('pengaduan'));
     }
@@ -92,7 +97,9 @@ class PengaduanController extends Controller
     // =========================
     public function proses($id)
     {
-        $pengaduan = Pengaduan::with(['user', 'petugas'])->findOrFail($id);
+        $pengaduan = Pengaduan::with(['user', 'petugas'])
+            ->whereNotNull('user_id')
+            ->findOrFail($id);
 
         $petugas = Petugas::where('status', 'aktif')->get();
 
@@ -104,10 +111,14 @@ class PengaduanController extends Controller
     // =========================
     public function updateProses(Request $request, $id)
     {
+        $request->validate([
+            'status' => 'required|in:proses,selesai,pending',
+        ]);
+
         $pengaduan = Pengaduan::findOrFail($id);
 
         $pengaduan->update([
-            'status' => $request->status,
+            'status'     => $request->status,
             'petugas_id' => $request->petugas_id
         ]);
 
@@ -119,10 +130,13 @@ class PengaduanController extends Controller
     // =========================
     public function exportExcel()
     {
-        $pengaduan = Pengaduan::with(['user', 'petugas'])->latest()->get();
+        $pengaduan = Pengaduan::with(['user', 'petugas'])
+            ->whereNotNull('user_id')  // filter data kotor
+            ->latest()
+            ->get();
 
         $headers = [
-            'Content-Type' => 'text/csv; charset=UTF-8',
+            'Content-Type'        => 'text/csv; charset=UTF-8',
             'Content-Disposition' => 'attachment; filename="pengaduan.csv"',
         ];
 
@@ -145,12 +159,12 @@ class PengaduanController extends Controller
             foreach ($pengaduan as $item) {
                 fputcsv($file, [
                     $item->id,
-                    $item->user->nama ?? '-',
+                    $item->user->nama         ?? '-',
                     $item->user->no_pelanggan ?? '-',
-                    $item->user->kecamatan ?? '-',
-                    $item->kategori ?? '-',
-                    $item->deskripsi ?? '-',
-                    $item->status ?? '-',
+                    $item->user->kecamatan    ?? '-',
+                    $item->kategori           ?? '-',
+                    $item->deskripsi          ?? '-',
+                    $item->status             ?? '-',
                     $item->petugas->kode_petugas ?? '-',
                     $item->created_at,
                 ]);
@@ -162,6 +176,9 @@ class PengaduanController extends Controller
         return response()->stream($callback, 200, $headers);
     }
 
+    // =========================
+    // API MOBILE - RIWAYAT PENGADUAN USER
+    // =========================
     public function userHistory($user_id)
     {
         $pengaduan = Pengaduan::where('user_id', $user_id)
@@ -169,9 +186,9 @@ class PengaduanController extends Controller
             ->get();
 
         return response()->json([
-            'status' => true,
+            'status'  => true,
             'message' => 'Riwayat pengaduan berhasil diambil',
-            'data' => $pengaduan
+            'data'    => $pengaduan
         ]);
     }
 }

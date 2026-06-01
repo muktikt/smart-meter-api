@@ -17,8 +17,6 @@ class MeterController extends Controller
 
         $fotoPath = $request->file('foto_meter')->store('meter_ocr', 'public');
 
-        // SEMENTARA: OCR simulasi dulu.
-        // Nanti bisa diganti dengan OCR asli.
         $hasilOcr = $request->hasil_ocr ?? null;
 
         return response()->json([
@@ -31,19 +29,21 @@ class MeterController extends Controller
             ]
         ]);
     }
+
     public function upload(Request $request)
     {
         $request->validate([
-            'user_id' => 'required',
-            'foto_meter' => 'required|image|mimes:jpg,jpeg,png|max:5120',
-            'meter_baru' => 'required|numeric',
-            'hasil_ocr' => 'nullable|numeric',
-            'ocr_persen' => 'nullable|numeric',
+            'user_id'     => 'required|exists:users,id',
+            'foto_meter'  => 'required|image|mimes:jpg,jpeg,png|max:5120',
+            'meter_baru'  => 'required|integer|min:0',
+            'hasil_ocr'   => 'nullable|integer|min:0',
+            'ocr_persen'  => 'nullable|integer|min:0|max:100',
         ]);
 
         $bulan = Carbon::now()->locale('id')->translatedFormat('F');
         $tahun = Carbon::now()->year;
 
+        // DUPLIKAT: cek apakah bulan ini sudah pernah diupload
         $cek = MeterReading::where('user_id', $request->user_id)
             ->where('bulan', $bulan)
             ->where('tahun', $tahun)
@@ -51,86 +51,107 @@ class MeterController extends Controller
 
         if ($cek) {
             return response()->json([
-                'status' => false,
+                'status'  => false,
                 'message' => 'Meter bulan ini sudah diupload'
             ], 400);
         }
 
-        $fotoPath = $request->file('foto_meter')->store('meter', 'public');
-
+        // AMBIL METER TERAKHIR untuk hitung meter_lama
         $lastMeter = MeterReading::where('user_id', $request->user_id)
             ->latest()
             ->first();
 
-        $meter_lama = $lastMeter ? $lastMeter->meter_baru : 0;
+        $meter_lama = $lastMeter ? (int) $lastMeter->meter_baru : 0;
+        $meter_baru = (int) $request->meter_baru;
 
-        if ($lastMeter && $request->meter_baru < $meter_lama) {
+        // VALIDASI: meter baru tidak boleh lebih kecil dari meter lama
+        if ($meter_baru < $meter_lama) {
             return response()->json([
-                'status' => false,
-                'message' => 'Meter baru tidak boleh lebih kecil dari meter lama'
+                'status'  => false,
+                'message' => 'Meter baru (' . $meter_baru . ') tidak boleh lebih kecil dari meter lama (' . $meter_lama . ')'
             ], 400);
         }
 
-        $pemakaian = $request->meter_baru - $meter_lama;
+        $pemakaian = $meter_baru - $meter_lama;
+
+        // VALIDASI: pemakaian tidak boleh negatif (double check)
+        if ($pemakaian < 0) {
+            return response()->json([
+                'status'  => false,
+                'message' => 'Terjadi kesalahan kalkulasi pemakaian. Silakan coba lagi.'
+            ], 422);
+        }
+
+        // VALIDASI: pemakaian nol tetap boleh disimpan, tapi tidak buat tagihan
         $statusAnomali = $pemakaian > 100 ? 'anomali' : 'normal';
 
+        // SIMPAN FOTO setelah semua validasi lolos
+        $fotoPath = $request->file('foto_meter')->store('meter', 'public');
+
         $meter = MeterReading::create([
-            'user_id' => $request->user_id,
-            'bulan' => $bulan,
-            'tahun' => $tahun,
-            'meter_lama' => $meter_lama,
-            'meter_baru' => $request->meter_baru,
-            'pemakaian' => $pemakaian,
-            'foto_meter' => $fotoPath,
-            'hasil_ocr' => $request->hasil_ocr ?? $request->meter_baru,
-            'status' => 'pending',
-            'status_anomali' => $statusAnomali,
-            'ocr_persen' => $request->ocr_persen ?? 0,
-            'ocr_status' => 'berhasil',
+            'user_id'          => $request->user_id,
+            'bulan'            => $bulan,
+            'tahun'            => $tahun,
+            'meter_lama'       => $meter_lama,
+            'meter_baru'       => $meter_baru,
+            'pemakaian'        => $pemakaian,
+            'foto_meter'       => $fotoPath,
+            'hasil_ocr'        => $request->hasil_ocr ?? $meter_baru,
+            'status'           => 'pending',
+            'status_anomali'   => $statusAnomali,
+            'ocr_persen'       => $request->ocr_persen ?? 0,
+            'ocr_status'       => 'berhasil',
             'validasi_petugas' => 'pending',
         ]);
 
-        $bulanAngka = [
-            'Januari' => 1,
-            'Februari' => 2,
-            'Maret' => 3,
-            'April' => 4,
-            'Mei' => 5,
-            'Juni' => 6,
-            'Juli' => 7,
-            'Agustus' => 8,
-            'September' => 9,
-            'Oktober' => 10,
-            'November' => 11,
-            'Desember' => 12,
-        ];
+        // TAGIHAN hanya dibuat jika pemakaian > 0
+        $tagihan = null;
 
-        $jatuhTempo = Carbon::create(
-            $tahun,
-            $bulanAngka[$bulan],
-            20
-        )->addMonth();
+        if ($pemakaian > 0) {
+            $bulanAngka = [
+                'Januari'   => 1,
+                'Februari'  => 2,
+                'Maret'     => 3,
+                'April'     => 4,
+                'Mei'       => 5,
+                'Juni'      => 6,
+                'Juli'      => 7,
+                'Agustus'   => 8,
+                'September' => 9,
+                'Oktober'   => 10,
+                'November'  => 11,
+                'Desember'  => 12,
+            ];
 
-        $tagihan = Tagihan::create([
-            'user_id' => $request->user_id,
-            'meter_id' => $meter->id,
-            'bulan' => $bulan,
-            'tahun' => $tahun,
-            'periode' => $bulan . ' ' . $tahun,
-            'pemakaian' => $pemakaian,
-            'total_tagihan' => $pemakaian * 4000,
-            'tarif_per_m3' => 4000,
-            'invoice_number' => 'INV-' . date('YmdHis') . '-' . $request->user_id,
-            'status' => 'belum_bayar',
-            'jatuh_tempo' => $jatuhTempo
-        ]);
+            $jatuhTempo = Carbon::create(
+                $tahun,
+                $bulanAngka[$bulan],
+                20
+            )->addMonth();
+
+            $tagihan = Tagihan::create([
+                'user_id'        => $request->user_id,
+                'meter_id'       => $meter->id,
+                'bulan'          => $bulan,
+                'tahun'          => $tahun,
+                'periode'        => $bulan . ' ' . $tahun,
+                'pemakaian'      => $pemakaian,
+                'total_tagihan'  => $pemakaian * 4000,
+                'tarif_per_m3'   => 4000,
+                'invoice_number' => 'INV-' . date('YmdHis') . '-' . $request->user_id,
+                'status'         => 'belum_bayar',
+                'jatuh_tempo'    => $jatuhTempo
+            ]);
+        }
 
         return response()->json([
-            'status' => true,
-            'message' => 'Upload meter berhasil',
+            'status'  => true,
+            'message' => $pemakaian === 0
+                ? 'Upload meter berhasil. Tidak ada pemakaian bulan ini.'
+                : 'Upload meter berhasil',
             'data' => [
-                'meter' => $meter,
-                'tagihan' => $tagihan
+                'meter'   => $meter,
+                'tagihan' => $tagihan,
             ]
         ]);
     }
@@ -172,13 +193,10 @@ class MeterController extends Controller
 
         $meter = $query->get();
 
-        $totalMeter = MeterReading::count();
-
+        $totalMeter  = MeterReading::count();
         $ocrBerhasil = MeterReading::where('ocr_status', 'berhasil')->count();
-
-        $pending = MeterReading::where('status', 'pending')->count();
-
-        $anomali = MeterReading::where('pemakaian', '>', 100)->count();
+        $pending     = MeterReading::where('status', 'pending')->count();
+        $anomali     = MeterReading::where('pemakaian', '>', 100)->count();
 
         return view('meter.index', compact(
             'meter',
@@ -219,17 +237,10 @@ class MeterController extends Controller
             $query->where('validasi_petugas', $request->status);
         }
 
-        $anomali = $query->get();
-
-        $totalAnomali = MeterReading::where('pemakaian', '>', 100)->count();
-
-        $pendingAnomali = MeterReading::where('pemakaian', '>', 100)
-            ->where('validasi_petugas', 'pending')
-            ->count();
-
-        $validAnomali = MeterReading::where('pemakaian', '>', 100)
-            ->where('validasi_petugas', 'valid')
-            ->count();
+        $anomali        = $query->get();
+        $totalAnomali   = MeterReading::where('pemakaian', '>', 100)->count();
+        $pendingAnomali = MeterReading::where('pemakaian', '>', 100)->where('validasi_petugas', 'pending')->count();
+        $validAnomali   = MeterReading::where('pemakaian', '>', 100)->where('validasi_petugas', 'valid')->count();
 
         $kecamatanTertinggi = MeterReading::with('user')
             ->where('pemakaian', '>', 100)
@@ -253,9 +264,9 @@ class MeterController extends Controller
         $meter = MeterReading::findOrFail($id);
 
         $meter->update([
-            'status' => 'valid',
+            'status'           => 'valid',
             'validasi_petugas' => 'valid',
-            'status_anomali' => 'normal',
+            'status_anomali'   => 'normal',
         ]);
 
         return back()->with('success', 'Meter berhasil divalidasi');
@@ -266,10 +277,10 @@ class MeterController extends Controller
         $meter = MeterReading::findOrFail($id);
 
         $meter->update([
-            'status' => 'pending',
-            'status_anomali' => 'anomali',
+            'status'           => 'pending',
+            'status_anomali'   => 'anomali',
             'validasi_petugas' => 'warning',
-            'catatan_anomali' => 'Pemakaian tidak normal',
+            'catatan_anomali'  => 'Pemakaian tidak normal',
         ]);
 
         return back()->with('success', 'Meter ditandai sebagai warning');
@@ -280,7 +291,7 @@ class MeterController extends Controller
         $meter = MeterReading::with('user')->latest()->get();
 
         $headers = [
-            'Content-Type' => 'text/csv; charset=UTF-8',
+            'Content-Type'        => 'text/csv; charset=UTF-8',
             'Content-Disposition' => 'attachment; filename="meter_reading.csv"',
         ];
 
@@ -289,19 +300,9 @@ class MeterController extends Controller
             fwrite($file, "\xEF\xBB\xBF");
 
             fputcsv($file, [
-                'ID',
-                'Pelanggan',
-                'No Pelanggan',
-                'Kecamatan',
-                'Bulan',
-                'Tahun',
-                'Meter Lama',
-                'Meter Baru',
-                'Pemakaian',
-                'OCR',
-                'Status',
-                'Status Anomali',
-                'Tanggal'
+                'ID', 'Pelanggan', 'No Pelanggan', 'Kecamatan',
+                'Bulan', 'Tahun', 'Meter Lama', 'Meter Baru',
+                'Pemakaian', 'OCR', 'Status', 'Status Anomali', 'Tanggal'
             ]);
 
             foreach ($meter as $item) {
@@ -335,9 +336,9 @@ class MeterController extends Controller
             ->get();
 
         return response()->json([
-            'status' => true,
+            'status'  => true,
             'message' => 'Riwayat meter berhasil diambil',
-            'data' => $meter
+            'data'    => $meter
         ]);
     }
 }
