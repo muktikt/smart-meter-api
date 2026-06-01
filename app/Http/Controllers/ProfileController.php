@@ -2,8 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\User;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 
 class ProfileController extends Controller
@@ -13,7 +13,7 @@ class ProfileController extends Controller
     // =========================
     public function index()
     {
-        $admin = Auth::user();
+        $admin = User::find(session('admin_id'));
 
         return view('profile.index', compact('admin'));
     }
@@ -23,21 +23,25 @@ class ProfileController extends Controller
     // =========================
     public function update(Request $request)
     {
-        $admin = Auth::user();
+        $admin = User::find(session('admin_id'));
 
         $request->validate([
-            'nama' => 'required',
+            'nama'  => 'required',
             'email' => 'required|email',
             'no_hp' => 'nullable'
         ]);
 
         $admin->update([
-            'nama' => $request->nama,
+            'nama'  => $request->nama,
             'email' => $request->email,
             'no_hp' => $request->no_hp,
         ]);
 
-        return redirect('/profile')
+        // Update session supaya nama di navbar ikut berubah
+        session(['admin_nama' => $request->nama]);
+        session(['admin_email' => $request->email]);
+
+        return redirect('/admin-profile')
                 ->with('success', 'Profile berhasil diperbarui');
     }
 
@@ -47,16 +51,19 @@ class ProfileController extends Controller
     public function updatePassword(Request $request)
     {
         $request->validate([
-            'password_lama' => 'required',
-            'password_baru' => 'required|min:6',
+            'password_lama'      => 'required',
+            'password_baru'      => 'required|min:6',
             'konfirmasi_password' => 'required|same:password_baru',
         ]);
 
-        $admin = Auth::user();
+        $admin = User::find(session('admin_id'));
+
+        if (!$admin) {
+            return redirect('/login')->with('error', 'Session habis, silakan login ulang');
+        }
 
         // PASSWORD LAMA SALAH
         if (!Hash::check($request->password_lama, $admin->password)) {
-
             return back()->with('error', 'Password lama salah');
         }
 
@@ -65,7 +72,7 @@ class ProfileController extends Controller
             'password' => bcrypt($request->password_baru)
         ]);
 
-        return redirect('/profile')
+        return redirect('/admin-profile')
                 ->with('success', 'Password berhasil diperbarui');
     }
 
@@ -78,14 +85,15 @@ class ProfileController extends Controller
             'foto' => 'required|image|mimes:jpg,jpeg,png|max:2048'
         ]);
 
-        $admin = Auth::user();
+        $admin = User::find(session('admin_id'));
+
+        if (!$admin) {
+            return redirect('/login')->with('error', 'Session habis, silakan login ulang');
+        }
 
         if ($request->hasFile('foto')) {
-
-            $foto = $request->file('foto');
-
+            $foto     = $request->file('foto');
             $namaFoto = time() . '.' . $foto->getClientOriginalExtension();
-
             $foto->move(public_path('profile'), $namaFoto);
 
             $admin->update([
@@ -93,7 +101,7 @@ class ProfileController extends Controller
             ]);
         }
 
-        return redirect('/profile')
+        return redirect('/admin-profile')
                 ->with('success', 'Foto profile berhasil diupload');
     }
 
@@ -102,9 +110,10 @@ class ProfileController extends Controller
     // =========================
     public function logoutAll()
     {
-        Auth::logoutOtherDevices(request('password'));
+        // Karena pakai session manual, cukup flush session saja
+        session()->flush();
 
-        return redirect('/profile')
+        return redirect('/login')
                 ->with('success', 'Berhasil logout dari semua device');
     }
 }
