@@ -23,7 +23,8 @@ class User extends Authenticatable
         'kecamatan',
         'latitude',
         'longitude',
-        'status_akun'
+        'status_akun',
+        'device_id'
     ];
 
     protected $hidden = [

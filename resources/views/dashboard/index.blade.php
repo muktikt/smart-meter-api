@@ -332,13 +332,13 @@ new Chart(ctx, {
 
     data: {
 
-        labels: ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun'],
+        labels: {!! json_encode($chartLabel) !!},
 
         datasets: [{
 
             label: 'Pemakaian Air',
 
-            data: [120, 190, 300, 500, 200, 300],
+            data: {!! json_encode($chartPemakaian) !!},
 
             borderColor: '#2191d1',
 

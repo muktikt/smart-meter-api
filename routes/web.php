@@ -51,7 +51,6 @@ Route::post('/petugas/nonaktif/{id}', [PetugasController::class, 'nonaktif']);
 Route::delete('/petugas/delete/{id}', [PetugasController::class, 'destroy']);
 Route::get('/petugas/reset-device/{id}', [PetugasController::class, 'resetDevice']);
 Route::get('/petugas/block/{id}', [PetugasController::class, 'block']);
-Route::get('/petugas/export-excel', [PetugasController::class, 'exportExcel']);
 
 Route::get('/admin-profile', [ProfileController::class, 'index']);
 Route::post('/admin-profile/update', [ProfileController::class, 'update']);
@@ -83,3 +82,8 @@ Route::post('/gangguan/store', [GangguanController::class, 'store']);
 Route::get('/gangguan/selesai/{id}', [GangguanController::class, 'selesai']);
 
 Route::post('/logout', [AuthController::class, 'logout']);
+
+Route::middleware('auth')->group(function () {
+    Route::get('/dashboard', [DashboardController::class, 'index']);
+    // ... semua route lainnya kecuali /login dan /logout
+});
