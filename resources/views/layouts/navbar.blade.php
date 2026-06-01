@@ -72,7 +72,7 @@
 
             <div>
                 <h3 class="font-semibold text-gray-700">
-                    Admin PDAM
+                    {{ session('admin_nama', 'Admin PDAM') }}
                 </h3>
 
                 <p class="text-xs text-gray-400">

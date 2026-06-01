@@ -12,7 +12,7 @@ class DashboardController extends Controller
 {
     public function index()
     {
-        $totalPelanggan = User::count();
+        $totalPelanggan = User::whereNull('role_id')->count();
 
         $totalTagihan = Tagihan::sum('total_tagihan');
 
