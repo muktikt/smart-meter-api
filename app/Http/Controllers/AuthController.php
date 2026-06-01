@@ -15,46 +15,42 @@ class AuthController extends Controller
     {
         $request->validate([
             'no_pelanggan' => 'required',
-            'email' => 'required|email',
-            'password' => 'required|min:6',
+            'email'        => 'required|email',
+            'password'     => 'required|min:6',
         ]);
 
         $user = User::where('no_pelanggan', $request->no_pelanggan)->first();
 
         // NOMOR TIDAK DITEMUKAN
         if (!$user) {
-
             return response()->json([
-                'status' => false,
+                'status'  => false,
                 'message' => 'Nomor pelanggan tidak ditemukan'
             ], 404);
         }
 
         // AKUN SUDAH AKTIF
         if ($user->status_akun == 'aktif') {
-
             return response()->json([
-                'status' => false,
+                'status'  => false,
                 'message' => 'Akun sudah aktif'
             ], 400);
         }
 
         // UPDATE DATA REGISTER
         $user->update([
-            'email' => $request->email,
-            'password' => Hash::make($request->password),
-            'no_hp' => $request->no_hp,
-            'alamat' => $request->alamat,
-            'kecamatan' => $request->kecamatan,
-            'latitude' => $request->latitude,
-            'longitude' => $request->longitude,
+            'email'       => $request->email,
+            'password'    => Hash::make($request->password),
+            'no_hp'       => $request->no_hp,
+            'alamat'      => $request->alamat,
+            'kecamatan'   => $request->kecamatan,
             'status_akun' => 'aktif'
         ]);
 
         return response()->json([
-            'status' => true,
+            'status'  => true,
             'message' => 'Registrasi berhasil',
-            'data' => $user
+            'data'    => $user
         ]);
     }
 
@@ -64,43 +60,43 @@ class AuthController extends Controller
     public function login(Request $request)
     {
         $request->validate([
-            'email' => 'required',
+            'email'    => 'required',
             'password' => 'required',
         ]);
 
         $user = User::where(function ($q) use ($request) {
                 $q->where('email', $request->email)
-                ->orWhere('no_pelanggan', $request->email)
-                ->orWhere('no_hp', $request->email);
+                  ->orWhere('no_pelanggan', $request->email)
+                  ->orWhere('no_hp', $request->email);
             })
             ->whereNull('role_id')
             ->first();
 
         if (!$user || !Hash::check($request->password, $user->password)) {
             return response()->json([
-                'status' => false,
+                'status'  => false,
                 'message' => 'Email, nomor pelanggan, atau password salah'
             ], 401);
         }
 
         if ($user->status_akun != 'aktif') {
             return response()->json([
-                'status' => false,
+                'status'  => false,
                 'message' => 'Akun belum aktif, silakan registrasi terlebih dahulu'
             ], 403);
         }
 
         return response()->json([
-            'status' => true,
+            'status'  => true,
             'message' => 'Login berhasil',
-            'data' => $user
+            'data'    => $user
         ]);
     }
 
     public function adminLogin(Request $request)
     {
         $request->validate([
-            'email' => 'required',
+            'email'    => 'required',
             'password' => 'required',
         ]);
 
@@ -114,8 +110,8 @@ class AuthController extends Controller
 
         session([
             'admin_login' => true,
-            'admin_id' => $user->id,
-            'admin_nama' => $user->nama,
+            'admin_id'    => $user->id,
+            'admin_nama'  => $user->nama,
             'admin_email' => $user->email,
         ]);
 
