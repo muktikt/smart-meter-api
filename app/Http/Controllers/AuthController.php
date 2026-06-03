@@ -93,6 +93,90 @@ class AuthController extends Controller
         ]);
     }
 
+    // =========================
+    // UNIFIED LOGIN (Auto-detect role)
+    // =========================
+    public function unifiedLogin(Request $request)
+    {
+        $request->validate([
+            'identifier' => 'required',
+            'password'   => 'required',
+            'device_id'  => 'nullable',
+            'device_name'=> 'nullable',
+        ]);
+
+        $identifier = $request->identifier;
+        $password   = $request->password;
+
+        // ── STEP 1: Coba cari di tabel users (pelanggan) ──
+        $user = \App\Models\User::where(function ($q) use ($identifier) {
+                $q->where('email', $identifier)
+                  ->orWhere('no_pelanggan', $identifier)
+                  ->orWhere('no_hp', $identifier);
+            })
+            ->whereNull('role_id')
+            ->first();
+
+        if ($user && \Illuminate\Support\Facades\Hash::check($password, $user->password)) {
+            if ($user->status_akun != 'aktif') {
+                return response()->json([
+                    'status'  => false,
+                    'message' => 'Akun belum aktif, silakan registrasi terlebih dahulu'
+                ], 403);
+            }
+
+            return response()->json([
+                'status'  => true,
+                'message' => 'Login berhasil sebagai Pelanggan',
+                'role'    => 'pelanggan',
+                'data'    => $user
+            ]);
+        }
+
+        // ── STEP 2: Coba cari di tabel petugas ──
+        $petugas = \App\Models\Petugas::where('kode_petugas', $identifier)
+            ->orWhere('email', $identifier)
+            ->first();
+
+        if ($petugas && \Illuminate\Support\Facades\Hash::check($password, $petugas->password)) {
+            if ($petugas->status != 'aktif') {
+                return response()->json([
+                    'status'  => false,
+                    'message' => 'Akun petugas tidak aktif'
+                ], 403);
+            }
+
+            // Device lock check
+            if ($petugas->device_id && $request->device_id && $petugas->device_id != $request->device_id) {
+                return response()->json([
+                    'status'  => false,
+                    'message' => 'Akun ini sudah digunakan di device lain'
+                ], 403);
+            }
+
+            // Register device jika belum ada
+            if (!$petugas->device_id && $request->device_id) {
+                $petugas->update([
+                    'device_id'   => $request->device_id,
+                    'device_name' => $request->device_name,
+                ]);
+            }
+
+            return response()->json([
+                'status'  => true,
+                'message' => 'Login berhasil sebagai Petugas',
+                'role'    => 'petugas',
+                'data'    => $petugas
+            ]);
+        }
+
+        // ── STEP 3: Tidak ditemukan di kedua tabel ──
+        return response()->json([
+            'status'  => false,
+            'message' => 'Email, nomor pelanggan, kode petugas, atau password salah'
+        ], 401);
+    }
+
     public function adminLogin(Request $request)
     {
         $request->validate([

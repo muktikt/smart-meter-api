@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Waktu pembuatan: 01 Jun 2026 pada 01.34
+-- Waktu pembuatan: 03 Jun 2026 pada 19.11
 -- Versi server: 10.4.32-MariaDB
 -- Versi PHP: 8.2.12
 
@@ -89,7 +89,7 @@ CREATE TABLE `gangguan_air` (
   `kecamatan` varchar(100) DEFAULT NULL,
   `tanggal_mulai` date DEFAULT NULL,
   `estimasi_selesai` date DEFAULT NULL,
-  `status` enum('aktif','selesai') DEFAULT 'aktif',
+  `status` enum('aktif','proses','selesai') DEFAULT 'aktif',
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   `updated_at` timestamp NULL DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
@@ -165,9 +165,9 @@ CREATE TABLE `meter_reading` (
   `user_id` int(11) DEFAULT NULL,
   `bulan` varchar(20) DEFAULT NULL,
   `tahun` int(11) DEFAULT NULL,
-  `meter_lama` int(11) DEFAULT NULL,
-  `meter_baru` int(11) DEFAULT NULL,
-  `pemakaian` int(11) DEFAULT NULL,
+  `meter_lama` int(11) UNSIGNED DEFAULT NULL,
+  `meter_baru` int(11) UNSIGNED DEFAULT NULL,
+  `pemakaian` int(11) UNSIGNED DEFAULT NULL,
   `foto_meter` text DEFAULT NULL,
   `hasil_ocr` varchar(255) DEFAULT NULL,
   `status` enum('pending','valid','reject') DEFAULT 'pending',
@@ -175,19 +175,21 @@ CREATE TABLE `meter_reading` (
   `updated_at` timestamp NULL DEFAULT NULL,
   `status_anomali` varchar(20) DEFAULT 'normal',
   `catatan_anomali` text DEFAULT NULL,
-  `petugas_id` bigint(20) DEFAULT NULL,
+  `catatan` text DEFAULT NULL,
+  `petugas_id` int(11) DEFAULT NULL,
   `ocr_persen` int(11) DEFAULT 0,
   `ocr_status` varchar(50) DEFAULT 'pending',
-  `validasi_petugas` varchar(50) DEFAULT 'pending'
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+  `validasi_petugas` varchar(50) DEFAULT 'pending',
+  `validated_at` datetime DEFAULT NULL
+) ;
 
 --
 -- Dumping data untuk tabel `meter_reading`
 --
 
-INSERT INTO `meter_reading` (`id`, `user_id`, `bulan`, `tahun`, `meter_lama`, `meter_baru`, `pemakaian`, `foto_meter`, `hasil_ocr`, `status`, `created_at`, `updated_at`, `status_anomali`, `catatan_anomali`, `petugas_id`, `ocr_persen`, `ocr_status`, `validasi_petugas`) VALUES
-(3, 3, 'Januari', 2026, 1400, 1500, 100, NULL, NULL, 'valid', '2026-05-07 15:12:27', NULL, 'normal', NULL, NULL, 0, 'pending', 'pending'),
-(7, 2, 'Mei', 2026, 980, 1200, 220, 'meter/ZpqAIVKe5qOTB9Z6wWxakwA3k5JBptXz9DoEhpEn.png', '1200', 'valid', '2026-05-30 09:39:48', '2026-05-30 11:03:15', 'normal', NULL, 5, 90, 'berhasil', 'valid');
+INSERT INTO `meter_reading` (`id`, `user_id`, `bulan`, `tahun`, `meter_lama`, `meter_baru`, `pemakaian`, `foto_meter`, `hasil_ocr`, `status`, `created_at`, `updated_at`, `status_anomali`, `catatan_anomali`, `catatan`, `petugas_id`, `ocr_persen`, `ocr_status`, `validasi_petugas`, `validated_at`) VALUES
+(3, 3, 'Januari', 2026, 1400, 1500, 100, NULL, NULL, 'valid', '2026-05-07 15:12:27', NULL, 'normal', NULL, NULL, NULL, 0, 'pending', 'pending', NULL),
+(7, 2, 'Mei', 2026, 980, 1200, 220, 'meter/ZpqAIVKe5qOTB9Z6wWxakwA3k5JBptXz9DoEhpEn.png', '1200', 'valid', '2026-05-30 09:39:48', '2026-05-30 11:03:15', 'normal', NULL, NULL, 5, 90, 'berhasil', 'valid', NULL);
 
 -- --------------------------------------------------------
 
@@ -295,7 +297,8 @@ INSERT INTO `payments` (`id`, `tagihan_id`, `invoice_id`, `payment_gateway`, `am
 (1, 3, '90f19a01-5f9c-4a51-9d61-26001c4e71c8', 'dompetx', 400000, 'checkout', 'pending', NULL, NULL, '2026-05-29 12:18:24', '2026-05-29 12:18:24'),
 (2, 3, '6b8fd460-c896-4566-8212-bb70957be900', 'dompetx', 400000, 'checkout', 'pending', 'https://checkout.dompetx.com/checkoutV2?refId=6b8fd460-c896-4566-8212-bb70957be900', NULL, '2026-05-29 12:45:02', '2026-05-29 12:45:02'),
 (3, 3, 'f1e560cc-4060-4ee6-9841-ec24e296dd84', 'dompetx', 400000, 'checkout', 'pending', 'https://checkout.dompetx.com/checkoutV2?refId=f1e560cc-4060-4ee6-9841-ec24e296dd84', NULL, '2026-05-30 06:41:17', '2026-05-30 06:41:17'),
-(4, 3, '556001d2-1f7e-435d-add4-c173ecc47b5d', 'dompetx', 400000, 'checkout', 'pending', 'https://checkout.dompetx.com/checkout?refId=556001d2-1f7e-435d-add4-c173ecc47b5d', NULL, '2026-05-30 07:06:27', '2026-05-30 07:06:27');
+(4, 3, '556001d2-1f7e-435d-add4-c173ecc47b5d', 'dompetx', 400000, 'checkout', 'pending', 'https://checkout.dompetx.com/checkout?refId=556001d2-1f7e-435d-add4-c173ecc47b5d', NULL, '2026-05-30 07:06:27', '2026-05-30 07:06:27'),
+(5, 5, '70a37f46-d860-498a-b34f-59e133f73af8', 'dompetx', 880000, 'checkout', 'pending', 'https://checkout.dompetx.com/checkoutV2?refId=70a37f46-d860-498a-b34f-59e133f73af8', NULL, '2026-06-03 09:26:14', '2026-06-03 09:26:14');
 
 -- --------------------------------------------------------
 
@@ -320,22 +323,17 @@ CREATE TABLE `pembayaran` (
 
 CREATE TABLE `pengaduan` (
   `id` int(11) NOT NULL,
-  `user_id` int(11) DEFAULT NULL,
-  `kategori` varchar(100) DEFAULT NULL,
-  `deskripsi` text DEFAULT NULL,
+  `user_id` int(11) NOT NULL,
+  `kategori` varchar(100) NOT NULL,
+  `deskripsi` text NOT NULL,
   `foto` text DEFAULT NULL,
-  `status` enum('proses','selesai') DEFAULT 'proses',
+  `status` enum('pending','proses','selesai') DEFAULT 'proses',
   `petugas_id` int(11) DEFAULT NULL,
+  `catatan_petugas` text DEFAULT NULL,
+  `tanggal_selesai` datetime DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   `updated_at` timestamp NULL DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
---
--- Dumping data untuk tabel `pengaduan`
---
-
-INSERT INTO `pengaduan` (`id`, `user_id`, `kategori`, `deskripsi`, `foto`, `status`, `petugas_id`, `created_at`, `updated_at`) VALUES
-(1, NULL, NULL, NULL, NULL, 'selesai', NULL, '2026-05-07 11:29:15', '2026-05-28 12:02:38');
 
 -- --------------------------------------------------------
 
@@ -374,8 +372,8 @@ CREATE TABLE `petugas` (
   `id` int(11) NOT NULL,
   `kode_petugas` varchar(100) DEFAULT NULL,
   `nama` varchar(100) DEFAULT NULL,
-  `email` varchar(255) DEFAULT NULL,
-  `password` varchar(255) DEFAULT NULL,
+  `email` varchar(255) NOT NULL,
+  `password` varchar(255) NOT NULL,
   `no_hp` varchar(20) DEFAULT NULL,
   `kecamatan` varchar(100) DEFAULT NULL,
   `role` varchar(100) DEFAULT NULL,
@@ -393,8 +391,6 @@ CREATE TABLE `petugas` (
 --
 
 INSERT INTO `petugas` (`id`, `kode_petugas`, `nama`, `email`, `password`, `no_hp`, `kecamatan`, `role`, `status`, `device_id`, `device_name`, `foto`, `remember_token`, `created_at`, `updated_at`) VALUES
-(1, 'IND001', 'Petugas Indramayu', NULL, NULL, NULL, 'Indramayu', NULL, 'aktif', NULL, NULL, NULL, NULL, '2026-05-07 15:12:27', NULL),
-(3, 'KRG001', 'Petugas Karangampel', NULL, NULL, NULL, 'Karangampel', NULL, 'aktif', NULL, NULL, NULL, NULL, '2026-05-07 15:12:27', NULL),
 (5, 'IND002', 'Petugas Indramayu', 'indramayu@pdam.com', '$2y$12$CootQ7mT9ZDRDD0z1gYWHeXmS3is3/pqZfMS..P294yyIh0n07VZq', '081214959954', 'Arahan', 'lapangan', 'aktif', 'android-test-1', 'Samsung A55', NULL, NULL, '2026-05-30 10:47:37', '2026-05-30 10:50:02');
 
 -- --------------------------------------------------------
@@ -452,7 +448,7 @@ CREATE TABLE `tagihan` (
 
 INSERT INTO `tagihan` (`id`, `user_id`, `meter_id`, `bulan`, `tahun`, `periode`, `pemakaian`, `total_tagihan`, `invoice_number`, `tarif_per_m3`, `status`, `tanggal_bayar`, `metode_bayar`, `jatuh_tempo`, `created_at`, `updated_at`) VALUES
 (3, 3, 3, 'Mei', 2026, 'Mei 2026', 100, 400000, 'INV-3-1780149983', 4000, 'belum_bayar', NULL, 'dompetx', '2026-06-20', '2026-05-07 15:12:27', '2026-05-30 07:06:27'),
-(5, 2, 7, 'Mei', 2026, 'Mei 2026', 220, 880000, 'INV-20260530163948-2', 4000, 'belum_bayar', NULL, NULL, '2026-06-20', '2026-05-30 09:39:48', '2026-05-30 09:39:48');
+(5, 2, 7, 'Mei', 2026, 'Mei 2026', 220, 880000, 'INV-5-1780503969', 4000, 'belum_bayar', NULL, 'dompetx', '2026-06-20', '2026-05-30 09:39:48', '2026-06-03 09:26:14');
 
 -- --------------------------------------------------------
 
@@ -472,7 +468,7 @@ CREATE TABLE `users` (
   `kecamatan` varchar(100) DEFAULT NULL,
   `latitude` double DEFAULT NULL,
   `longitude` double DEFAULT NULL,
-  `status_akun` enum('belum_aktif','aktif') DEFAULT 'belum_aktif',
+  `status_akun` enum('belum_aktif','aktif','nonaktif') DEFAULT 'belum_aktif',
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   `updated_at` timestamp NULL DEFAULT NULL,
   `device_id` varchar(255) DEFAULT NULL
@@ -549,7 +545,8 @@ ALTER TABLE `log_aktivitas`
 --
 ALTER TABLE `meter_reading`
   ADD PRIMARY KEY (`id`),
-  ADD KEY `user_id` (`user_id`);
+  ADD UNIQUE KEY `uq_meter_user_bulan_tahun` (`user_id`,`bulan`,`tahun`),
+  ADD KEY `meter_reading_petugas_fk` (`petugas_id`);
 
 --
 -- Indeks untuk tabel `migrations`
@@ -581,13 +578,6 @@ ALTER TABLE `notifications`
 ALTER TABLE `payments`
   ADD PRIMARY KEY (`id`),
   ADD KEY `fk_payment_tagihan` (`tagihan_id`);
-
---
--- Indeks untuk tabel `pembayaran`
---
-ALTER TABLE `pembayaran`
-  ADD PRIMARY KEY (`id`),
-  ADD KEY `tagihan_id` (`tagihan_id`);
 
 --
 -- Indeks untuk tabel `pengaduan`
@@ -675,7 +665,7 @@ ALTER TABLE `log_aktivitas`
 -- AUTO_INCREMENT untuk tabel `meter_reading`
 --
 ALTER TABLE `meter_reading`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT untuk tabel `migrations`
@@ -705,13 +695,7 @@ ALTER TABLE `notifications`
 -- AUTO_INCREMENT untuk tabel `payments`
 --
 ALTER TABLE `payments`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
-
---
--- AUTO_INCREMENT untuk tabel `pembayaran`
---
-ALTER TABLE `pembayaran`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
 
 --
 -- AUTO_INCREMENT untuk tabel `pengaduan`
@@ -763,19 +747,14 @@ ALTER TABLE `bukti_pengaduan`
 -- Ketidakleluasaan untuk tabel `meter_reading`
 --
 ALTER TABLE `meter_reading`
-  ADD CONSTRAINT `meter_reading_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`);
+  ADD CONSTRAINT `meter_reading_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`),
+  ADD CONSTRAINT `meter_reading_petugas_fk` FOREIGN KEY (`petugas_id`) REFERENCES `petugas` (`id`) ON DELETE SET NULL;
 
 --
 -- Ketidakleluasaan untuk tabel `payments`
 --
 ALTER TABLE `payments`
   ADD CONSTRAINT `fk_payment_tagihan` FOREIGN KEY (`tagihan_id`) REFERENCES `tagihan` (`id`) ON DELETE CASCADE;
-
---
--- Ketidakleluasaan untuk tabel `pembayaran`
---
-ALTER TABLE `pembayaran`
-  ADD CONSTRAINT `pembayaran_ibfk_1` FOREIGN KEY (`tagihan_id`) REFERENCES `tagihan` (`id`);
 
 --
 -- Ketidakleluasaan untuk tabel `pengaduan`

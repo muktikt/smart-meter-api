@@ -13,6 +13,7 @@ use App\Http\Controllers\PetugasController;
 
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
+Route::post('/unified-login', [AuthController::class, 'unifiedLogin']);
 
 Route::post('/meter/ocr', [MeterController::class, 'ocr']);
 Route::post('/upload-meter', [MeterController::class, 'upload']);
@@ -42,3 +43,11 @@ Route::post('/petugas/meter/validasi/{id}', [PetugasController::class, 'apiValid
 Route::post('/petugas/meter/warning/{id}', [PetugasController::class, 'apiWarningMeter']);
 Route::get('/petugas/pengaduan/{petugas_id}', [PetugasController::class, 'apiPengaduan']);
 Route::post('/petugas/pengaduan/update/{id}', [PetugasController::class, 'apiUpdatePengaduan']);
+
+// New endpoints for Mobile Petugas
+Route::get('/petugas/dashboard/{petugas_id}', [PetugasController::class, 'apiDashboard']);
+Route::get('/petugas/meter/detail/{meter_id}', [PetugasController::class, 'apiMeterDetail']);
+Route::get('/petugas/meter/history/{petugas_id}', [PetugasController::class, 'apiMeterHistory']);
+Route::get('/petugas/pengaduan/detail/{pengaduan_id}', [PetugasController::class, 'apiPengaduanDetail']);
+Route::get('/petugas/gangguan/{petugas_id}', [PetugasController::class, 'apiGangguan']);
+Route::get('/petugas/profile/{petugas_id}', [PetugasController::class, 'apiProfile']);

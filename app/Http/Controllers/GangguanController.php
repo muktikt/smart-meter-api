@@ -67,7 +67,7 @@ class GangguanController extends Controller
             $fotoPath = $request->file('foto')->store('gangguan', 'public');
         }
 
-        GangguanAir::create([
+        $gangguan = GangguanAir::create([
             'judul' => $request->judul,
             'deskripsi' => $request->deskripsi,
             'foto' => $fotoPath,
@@ -76,6 +76,16 @@ class GangguanController extends Controller
             'estimasi_selesai' => $request->estimasi_selesai,
             'status' => $request->status,
         ]);
+
+        if ($request->status == 'aktif' || $request->status == 'proses') {
+            \App\Models\Notification::create([
+                'user_id' => null, // Broadcast to all
+                'judul' => 'Info Gangguan: ' . $request->judul,
+                'pesan' => 'Kecamatan ' . $request->kecamatan . ': ' . $request->deskripsi,
+                'tipe' => 'gangguan_air',
+                'status' => 'unread',
+            ]);
+        }
 
         return redirect('/gangguan')->with('success', 'Gangguan berhasil ditambahkan');
     }

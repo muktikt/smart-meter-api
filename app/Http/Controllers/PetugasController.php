@@ -268,8 +268,8 @@ class PetugasController extends Controller
         DB::transaction(function () use ($id) {
             $petugas = Petugas::findOrFail($id);
 
-            Pengaduan::where('petugas_id', $id)->delete();
-            MeterReading::where('petugas_id', $id)->delete();
+            Pengaduan::where('petugas_id', $id)->update(['petugas_id' => null]);
+            MeterReading::where('petugas_id', $id)->update(['petugas_id' => null]);
 
             $petugas->delete();
         });
@@ -455,15 +455,128 @@ class PetugasController extends Controller
 
         $pengaduan = Pengaduan::findOrFail($id);
 
-        $pengaduan->update([
+        $updateData = [
             'status' => $request->status,
             'petugas_id' => $request->petugas_id,
-        ]);
+            'catatan_petugas' => $request->catatan_petugas,
+        ];
+
+        if ($request->status == 'selesai') {
+            $updateData['tanggal_selesai'] = now();
+        }
+
+        $pengaduan->update($updateData);
 
         return response()->json([
             'status' => true,
             'message' => 'Status pengaduan berhasil diperbarui',
             'data' => $pengaduan
+        ]);
+    }
+
+    public function apiDashboard($petugas_id)
+    {
+        $petugas = Petugas::findOrFail($petugas_id);
+
+        $pendingMeter = MeterReading::whereHas('user', function ($q) use ($petugas) {
+            $q->where('kecamatan', $petugas->kecamatan);
+        })->where('status', 'pending')->count();
+
+        $validMeter = MeterReading::whereHas('user', function ($q) use ($petugas) {
+            $q->where('kecamatan', $petugas->kecamatan);
+        })->where('status', 'valid')->count();
+
+        $anomaliMeter = MeterReading::whereHas('user', function ($q) use ($petugas) {
+            $q->where('kecamatan', $petugas->kecamatan);
+        })->where('status_anomali', 'anomali')->count();
+
+        $pengaduanMasuk = Pengaduan::whereHas('user', function ($q) use ($petugas) {
+            $q->where('kecamatan', $petugas->kecamatan);
+        })->where('status', 'pending')->count();
+
+        $pengaduanProses = Pengaduan::whereHas('user', function ($q) use ($petugas) {
+            $q->where('kecamatan', $petugas->kecamatan);
+        })->where('status', 'proses')->count();
+
+        $pengaduanSelesai = Pengaduan::whereHas('user', function ($q) use ($petugas) {
+            $q->where('kecamatan', $petugas->kecamatan);
+        })->where('status', 'selesai')->count();
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Data dashboard petugas berhasil diambil',
+            'data' => [
+                'pending_meter' => $pendingMeter,
+                'valid_meter' => $validMeter,
+                'anomali_meter' => $anomaliMeter,
+                'pengaduan_masuk' => $pengaduanMasuk,
+                'pengaduan_proses' => $pengaduanProses,
+                'pengaduan_selesai' => $pengaduanSelesai,
+            ]
+        ]);
+    }
+
+    public function apiMeterDetail($meter_id)
+    {
+        $meter = MeterReading::with('user')->findOrFail($meter_id);
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Detail data meter berhasil diambil',
+            'data' => $meter
+        ]);
+    }
+
+    public function apiMeterHistory($petugas_id)
+    {
+        $meter = MeterReading::with('user')
+            ->where('petugas_id', $petugas_id)
+            ->latest()
+            ->get();
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Riwayat validasi petugas berhasil diambil',
+            'data' => $meter
+        ]);
+    }
+
+    public function apiPengaduanDetail($pengaduan_id)
+    {
+        $pengaduan = Pengaduan::with('user')->findOrFail($pengaduan_id);
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Detail pengaduan berhasil diambil',
+            'data' => $pengaduan
+        ]);
+    }
+
+    public function apiGangguan($petugas_id)
+    {
+        $petugas = Petugas::findOrFail($petugas_id);
+
+        $gangguan = DB::table('gangguan_air')
+            ->where('kecamatan', $petugas->kecamatan)
+            ->where('status', '!=', 'selesai')
+            ->latest()
+            ->get();
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Data gangguan air berhasil diambil',
+            'data' => $gangguan
+        ]);
+    }
+
+    public function apiProfile($petugas_id)
+    {
+        $petugas = Petugas::findOrFail($petugas_id);
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Profil petugas berhasil diambil',
+            'data' => $petugas
         ]);
     }
 
