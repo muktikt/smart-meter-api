@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\DB;
 use App\Models\Petugas;
 use App\Models\Pengaduan;
 use App\Models\MeterReading;
+use App\Models\Tagihan;
 
 class PetugasController extends Controller
 {
@@ -402,6 +403,47 @@ class PetugasController extends Controller
             'petugas_id' => request('petugas_id'),
         ]);
 
+        // Cari atau buat tagihan jika pemakaian > 0
+        if ($meter->pemakaian > 0) {
+            $cekTagihan = Tagihan::where('meter_id', $meter->id)->first();
+            if (!$cekTagihan) {
+                $bulanAngka = [
+                    'Januari'   => 1,
+                    'Februari'  => 2,
+                    'Maret'     => 3,
+                    'April'     => 4,
+                    'Mei'       => 5,
+                    'Juni'      => 6,
+                    'Juli'      => 7,
+                    'Agustus'   => 8,
+                    'September' => 9,
+                    'Oktober'   => 10,
+                    'November'  => 11,
+                    'Desember'  => 12,
+                ];
+
+                $bulan = $meter->bulan;
+                $tahun = $meter->tahun;
+                $bulanIdx = $bulanAngka[$bulan] ?? 1;
+
+                $jatuhTempo = \Carbon\Carbon::create($tahun, $bulanIdx, 20)->addMonth();
+
+                Tagihan::create([
+                    'user_id'        => $meter->user_id,
+                    'meter_id'       => $meter->id,
+                    'bulan'          => $bulan,
+                    'tahun'          => $tahun,
+                    'periode'        => $bulan . ' ' . $tahun,
+                    'pemakaian'      => $meter->pemakaian,
+                    'total_tagihan'  => $meter->pemakaian * 4000,
+                    'tarif_per_m3'   => 4000,
+                    'invoice_number' => null, // Baru dibuat ketika user klik bayar
+                    'status'         => 'belum_bayar',
+                    'jatuh_tempo'    => $jatuhTempo
+                ]);
+            }
+        }
+
         return response()->json([
             'status' => true,
             'message' => 'Meter berhasil divalidasi',
@@ -451,6 +493,7 @@ class PetugasController extends Controller
         $request->validate([
             'status' => 'required',
             'petugas_id' => 'required',
+            'foto_bukti' => 'nullable|image|max:5120',
         ]);
 
         $pengaduan = Pengaduan::findOrFail($id);
@@ -463,6 +506,9 @@ class PetugasController extends Controller
 
         if ($request->status == 'selesai') {
             $updateData['tanggal_selesai'] = now();
+            if ($request->hasFile('foto_bukti')) {
+                $updateData['foto_bukti'] = $request->file('foto_bukti')->store('bukti_pengaduan', 'public');
+            }
         }
 
         $pengaduan->update($updateData);

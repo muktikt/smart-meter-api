@@ -17,13 +17,19 @@ class PengaduanController extends Controller
             'user_id'   => 'required|exists:users,id',
             'kategori'  => 'required',
             'deskripsi' => 'required',
+            'foto'      => 'nullable|image|max:5120',
         ]);
+
+        $fotoPath = null;
+        if ($request->hasFile('foto')) {
+            $fotoPath = $request->file('foto')->store('pengaduan', 'public');
+        }
 
         $pengaduan = Pengaduan::create([
             'user_id'    => $request->user_id,
             'kategori'   => $request->kategori,
             'deskripsi'  => $request->deskripsi,
-            'foto'       => $request->foto,
+            'foto'       => $fotoPath,
             'status'     => 'proses',
             'petugas_id' => null
         ]);

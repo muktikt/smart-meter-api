@@ -14,7 +14,10 @@ class Pengaduan extends Model
         'deskripsi',
         'foto',
         'status',
-        'petugas_id'
+        'petugas_id',
+        'catatan_petugas',
+        'foto_bukti',
+        'tanggal_selesai'
     ];
 
     public function user()

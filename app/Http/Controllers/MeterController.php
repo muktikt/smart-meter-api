@@ -104,45 +104,8 @@ class MeterController extends Controller
             'validasi_petugas' => 'pending',
         ]);
 
-        // TAGIHAN hanya dibuat jika pemakaian > 0
+        // TAGIHAN tidak lagi otomatis dibuat di sini, melainkan nanti saat divalidasi oleh petugas
         $tagihan = null;
-
-        if ($pemakaian > 0) {
-            $bulanAngka = [
-                'Januari'   => 1,
-                'Februari'  => 2,
-                'Maret'     => 3,
-                'April'     => 4,
-                'Mei'       => 5,
-                'Juni'      => 6,
-                'Juli'      => 7,
-                'Agustus'   => 8,
-                'September' => 9,
-                'Oktober'   => 10,
-                'November'  => 11,
-                'Desember'  => 12,
-            ];
-
-            $jatuhTempo = Carbon::create(
-                $tahun,
-                $bulanAngka[$bulan],
-                20
-            )->addMonth();
-
-            $tagihan = Tagihan::create([
-                'user_id'        => $request->user_id,
-                'meter_id'       => $meter->id,
-                'bulan'          => $bulan,
-                'tahun'          => $tahun,
-                'periode'        => $bulan . ' ' . $tahun,
-                'pemakaian'      => $pemakaian,
-                'total_tagihan'  => $pemakaian * 4000,
-                'tarif_per_m3'   => 4000,
-                'invoice_number' => 'INV-' . date('YmdHis') . '-' . $request->user_id,
-                'status'         => 'belum_bayar',
-                'jatuh_tempo'    => $jatuhTempo
-            ]);
-        }
 
         return response()->json([
             'status'  => true,
@@ -268,6 +231,47 @@ class MeterController extends Controller
             'validasi_petugas' => 'valid',
             'status_anomali'   => 'normal',
         ]);
+
+        // Cari atau buat tagihan jika pemakaian > 0
+        if ($meter->pemakaian > 0) {
+            $cekTagihan = Tagihan::where('meter_id', $meter->id)->first();
+            if (!$cekTagihan) {
+                $bulanAngka = [
+                    'Januari'   => 1,
+                    'Februari'  => 2,
+                    'Maret'     => 3,
+                    'April'     => 4,
+                    'Mei'       => 5,
+                    'Juni'      => 6,
+                    'Juli'      => 7,
+                    'Agustus'   => 8,
+                    'September' => 9,
+                    'Oktober'   => 10,
+                    'November'  => 11,
+                    'Desember'  => 12,
+                ];
+
+                $bulan = $meter->bulan;
+                $tahun = $meter->tahun;
+                $bulanIdx = $bulanAngka[$bulan] ?? 1;
+
+                $jatuhTempo = Carbon::create($tahun, $bulanIdx, 20)->addMonth();
+
+                Tagihan::create([
+                    'user_id'        => $meter->user_id,
+                    'meter_id'       => $meter->id,
+                    'bulan'          => $bulan,
+                    'tahun'          => $tahun,
+                    'periode'        => $bulan . ' ' . $tahun,
+                    'pemakaian'      => $meter->pemakaian,
+                    'total_tagihan'  => $meter->pemakaian * 4000,
+                    'tarif_per_m3'   => 4000,
+                    'invoice_number' => null, // Invoice kosong, baru dibuat saat pelanggan bayar/checkout
+                    'status'         => 'belum_bayar',
+                    'jatuh_tempo'    => $jatuhTempo
+                ]);
+            }
+        }
 
         return back()->with('success', 'Meter berhasil divalidasi');
     }

@@ -84,6 +84,7 @@ Route::middleware('admin.auth')->group(function () {
     // TAGIHAN
     Route::get('/tagihan', [TagihanController::class, 'webIndex']);
     Route::get('/tagihan/detail/{id}', [TagihanController::class, 'detail']);
+    Route::get('/tagihan/reminder/{id}', [TagihanController::class, 'sendReminder']);
 
     // PENGADUAN
     Route::get('/pengaduan', [PengaduanController::class, 'index']);

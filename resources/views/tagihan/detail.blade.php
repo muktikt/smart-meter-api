@@ -44,24 +44,11 @@
 
         @if($tagihan->status != 'lunas' && $tagihan->user && $tagihan->user->no_hp)
 
-            @php
-                $noHp = preg_replace('/[^0-9]/', '', $tagihan->user->no_hp);
-
-                if (substr($noHp, 0, 1) == '0') {
-                    $noHp = '62' . substr($noHp, 1);
-                }
-
-                $pesan = 'Halo ' . ($tagihan->user->nama ?? 'Pelanggan') .
-                    ', tagihan air PDAM Anda bulan ' . ($tagihan->bulan ?? '-') . ' ' . ($tagihan->tahun ?? '') .
-                    ' sebesar Rp ' . number_format($tagihan->total_tagihan ?? 0, 0, ',', '.') .
-                    ' belum dibayar. Mohon segera melakukan pembayaran sebelum jatuh tempo ' . ($tagihan->jatuh_tempo ?? '-') . '.';
-            @endphp
-
-            <a href="https://wa.me/{{ $noHp }}?text={{ urlencode($pesan) }}"
-               target="_blank"
-               class="bg-green-500 hover:bg-green-600 transition-all duration-300 text-white px-6 py-3 rounded-2xl font-semibold shadow-lg">
+            <button id="btnReminder"
+                    onclick="sendReminder({{ $tagihan->id }})"
+                    class="bg-green-500 hover:bg-green-600 transition-all duration-300 text-white px-6 py-3 rounded-2xl font-semibold shadow-lg">
                 📩 Kirim Reminder
-            </a>
+            </button>
 
         @endif
 
@@ -495,4 +482,72 @@
 
 </style>
 
+@endsection
+
+@section('scripts')
+<script>
+    function sendReminder(tagihanId) {
+        const btn = document.getElementById('btnReminder');
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '⏳ Mengirim...';
+        btn.disabled = true;
+
+        fetch('/tagihan/reminder/' + tagihanId, {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.status === true) {
+                // Buka WhatsApp di tab baru
+                if (data.wa_url) {
+                    window.open(data.wa_url, '_blank');
+                }
+
+                showToast('✅ ' + data.message, 'success');
+            } else {
+                showToast('❌ ' + (data.message || 'Gagal mengirim reminder'), 'error');
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            showToast('❌ Terjadi kesalahan koneksi', 'error');
+        })
+        .finally(() => {
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+        });
+    }
+
+    function showToast(message, type) {
+        const toast = document.createElement('div');
+        toast.className = `fixed top-6 right-6 z-50 px-6 py-4 rounded-2xl shadow-2xl text-white font-semibold transition-all duration-500 transform translate-x-full`;
+        toast.style.minWidth = '320px';
+
+        if (type === 'success') {
+            toast.classList.add('bg-green-500');
+        } else {
+            toast.classList.add('bg-red-500');
+        }
+
+        toast.textContent = message;
+        document.body.appendChild(toast);
+
+        // Animate in
+        requestAnimationFrame(() => {
+            toast.classList.remove('translate-x-full');
+            toast.classList.add('translate-x-0');
+        });
+
+        // Auto dismiss after 4s
+        setTimeout(() => {
+            toast.classList.remove('translate-x-0');
+            toast.classList.add('translate-x-full');
+            setTimeout(() => toast.remove(), 500);
+        }, 4000);
+    }
+</script>
 @endsection
